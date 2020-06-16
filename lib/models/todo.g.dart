@@ -6,42 +6,44 @@ part of 'todo.dart';
 // DataGenerator
 // **************************************************************************
 
-// ignore_for_file: unused_local_variable
-// ignore_for_file: always_declare_return_types
-class _$TodoRepository extends Repository<Todo> {
-  _$TodoRepository(LocalAdapter<Todo> adapter) : super(adapter);
+// ignore_for_file: unused_local_variable, always_declare_return_types, non_constant_identifier_names
+mixin _$TodoModelAdapter on Repository<Todo> {
+  @override
+  Map<String, Map<String, Object>> relationshipsFor([Todo model]) => {
+        'user': {'type': 'users', 'kind': 'BelongsTo', 'instance': model?.user}
+      };
 
   @override
-  get relationshipMetadata => {'HasMany': {}, 'BelongsTo': {}};
-}
-
-class $TodoRepository extends _$TodoRepository
-    with StandardJSONAdapter<Todo>, JSONPlaceholderAdapter<Todo> {
-  $TodoRepository(LocalAdapter<Todo> adapter) : super(adapter);
-}
-
-// ignore: must_be_immutable, unused_local_variable
-class $TodoLocalAdapter extends LocalAdapter<Todo> {
-  $TodoLocalAdapter(DataManager manager, {box}) : super(manager, box: box);
+  Map<String, Repository> get relatedRepositories =>
+      {'users': manager.locator<Repository<User>>()};
 
   @override
-  deserialize(map) {
+  localDeserialize(map, {metadata}) {
+    for (var key in relationshipsFor().keys) {
+      map[key] = {
+        '_': [map[key], !map.containsKey(key), manager]
+      };
+    }
     return _$TodoFromJson(map);
   }
 
   @override
-  serialize(model) {
+  localSerialize(model) {
     final map = _$TodoToJson(model);
-
+    for (var e in relationshipsFor(model).entries) {
+      map[e.key] = (e.value['instance'] as Relationship)?.toJson();
+    }
     return map;
   }
-
-  @override
-  setOwnerInRelationships(owner, model) {}
-
-  @override
-  void setInverseInModel(inverse, model) {}
 }
+
+class $TodoRepository = Repository<Todo>
+    with
+        _$TodoModelAdapter,
+        RemoteAdapter<Todo>,
+        WatchAdapter<Todo>,
+        StandardJSONAdapter<Todo>,
+        JSONPlaceholderAdapter<Todo>;
 
 // **************************************************************************
 // JsonSerializableGenerator
@@ -52,6 +54,9 @@ Todo _$TodoFromJson(Map<String, dynamic> json) {
     id: json['id'] as int,
     title: json['title'] as String,
     completed: json['completed'] as bool,
+    user: json['user'] == null
+        ? null
+        : BelongsTo.fromJson(json['user'] as Map<String, dynamic>),
   );
 }
 
@@ -59,4 +64,5 @@ Map<String, dynamic> _$TodoToJson(Todo instance) => <String, dynamic>{
       'id': instance.id,
       'title': instance.title,
       'completed': instance.completed,
+      'user': instance.user,
     };

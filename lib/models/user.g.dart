@@ -6,55 +6,44 @@ part of 'user.dart';
 // DataGenerator
 // **************************************************************************
 
-// ignore_for_file: unused_local_variable
-// ignore_for_file: always_declare_return_types
-class _$UserRepository extends Repository<User> {
-  _$UserRepository(LocalAdapter<User> adapter) : super(adapter);
-
+// ignore_for_file: unused_local_variable, always_declare_return_types, non_constant_identifier_names
+mixin _$UserModelAdapter on Repository<User> {
   @override
-  get relationshipMetadata => {
-        'HasMany': {'todos': 'todos'},
-        'BelongsTo': {},
-        'repository#todos': manager.locator<Repository<Todo>>()
+  Map<String, Map<String, Object>> relationshipsFor([User model]) => {
+        'todos': {'type': 'todos', 'kind': 'HasMany', 'instance': model?.todos}
       };
-}
-
-class $UserRepository extends _$UserRepository
-    with StandardJSONAdapter<User>, JSONPlaceholderAdapter<User> {
-  $UserRepository(LocalAdapter<User> adapter) : super(adapter);
-}
-
-// ignore: must_be_immutable, unused_local_variable
-class $UserLocalAdapter extends LocalAdapter<User> {
-  $UserLocalAdapter(DataManager manager, {box}) : super(manager, box: box);
 
   @override
-  deserialize(map) {
-    map['todos'] = {
-      '_': [map['todos'], manager]
-    };
+  Map<String, Repository> get relatedRepositories =>
+      {'todos': manager.locator<Repository<Todo>>()};
+
+  @override
+  localDeserialize(map, {metadata}) {
+    for (var key in relationshipsFor().keys) {
+      map[key] = {
+        '_': [map[key], !map.containsKey(key), manager]
+      };
+    }
     return _$UserFromJson(map);
   }
 
   @override
-  serialize(model) {
+  localSerialize(model) {
     final map = _$UserToJson(model);
-    map['todos'] = model.todos?.toJson();
+    for (var e in relationshipsFor(model).entries) {
+      map[e.key] = (e.value['instance'] as Relationship)?.toJson();
+    }
     return map;
   }
-
-  @override
-  setOwnerInRelationships(owner, model) {
-    model.todos?.owner = owner;
-  }
-
-  @override
-  void setInverseInModel(inverse, model) {
-    if (inverse is DataId<Todo>) {
-      model.todos?.inverse = inverse;
-    }
-  }
 }
+
+class $UserRepository = Repository<User>
+    with
+        _$UserModelAdapter,
+        RemoteAdapter<User>,
+        WatchAdapter<User>,
+        StandardJSONAdapter<User>,
+        JSONPlaceholderAdapter<User>;
 
 // **************************************************************************
 // JsonSerializableGenerator

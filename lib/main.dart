@@ -15,7 +15,7 @@ import 'models/user.dart';
 main() {
   runApp(MultiProvider(
     providers: [
-      ...dataProviders(() => getApplicationDocumentsDirectory()),
+      ...dataProviders(() => getApplicationDocumentsDirectory(), clear: true),
     ],
     child: TodoApp(),
   ));
@@ -38,9 +38,17 @@ class TodoApp extends StatelessWidget {
           ),
         ),
         floatingActionButton: FloatingActionButton(
-          onPressed: () {
-            Todo(title: "Task number ${Random().nextInt(9999)}").save();
-            // Todo(id: 1, title: "OVERWRITING TASK!", completed: true).save();
+          onPressed: () async {
+            final user = await context
+                .read<Repository<User>>()
+                .findOne('1', remote: false);
+
+            final todo = Todo(
+                title: "Task number ${Random().nextInt(9999)}",
+                user: BelongsTo());
+
+            // await todo.save();
+            user.todos.add(todo);
           },
           child: Icon(Icons.add),
         ),
@@ -54,24 +62,29 @@ class TodoApp extends StatelessWidget {
 class TodoScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final repository = context.read<Repository<Todo>>();
-    return DataStateBuilder<List<Todo>>(
-      notifier: repository.watchAll(params: {'userId': '1', '_limit': '5'}),
+    final repository = context.watch<Repository<User>>();
+    return DataStateBuilder<User>(
+      notifier: repository.watchOne(
+        1,
+        params: {'_embed': 'todos'},
+        alsoWatch: (u) => [u.todos],
+      ),
       builder: (context, state, notifier, _) {
-        return RefreshIndicator(
-          onRefresh: () async {
-            await notifier.reload();
-          },
-          child: TodoList(state),
-        );
+        if (state.hasException) {
+          return Text(state.exception.toString());
+        }
+        return TodoList(state);
       },
     );
   }
 }
 
 class TodoList extends StatelessWidget {
-  final DataState<List<Todo>> state;
-  const TodoList(this.state, {Key key}) : super(key: key);
+  final DataState<User> state;
+  final List<Todo> todos;
+  TodoList(this.state, {Key key})
+      : todos = state.model?.todos?.toList(),
+        super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -80,14 +93,28 @@ class TodoList extends StatelessWidget {
     }
     return ListView.separated(
       itemBuilder: (context, i) {
-        final todo = state.model[i];
+        final todo = todos[i];
         return GestureDetector(
-          onDoubleTap: () =>
-              Todo(id: todo.id, title: todo.title, completed: !todo.completed)
-                  .save(),
+          onDoubleTap: () async {
+            final user = await context
+                .read<Repository<User>>()
+                .findOne('1', remote: false);
+            if (todo.id != null) {
+              Todo(
+                id: todo.id,
+                title: todo.title,
+                completed: !todo.completed,
+                user: user.asBelongsTo,
+              ).save();
+            }
+          },
           child: Dismissible(
             child: Text(
-                '${todo.completed ? "✅" : "◻️"} [id: ${todo.id}] ${todo.title}'),
+              '''${todo.completed ? "✅" : "◻️"} (${todos.length})
+              [id: ${todo.id} / ${keyFor(todo)}] ${todo.title}
+              / u: ${todo.user?.value?.id} / ${todo.hashCode}''',
+              style: TextStyle(color: Colors.black87),
+            ),
             key: ValueKey(todo),
             direction: DismissDirection.endToStart,
             background: Container(
@@ -100,7 +127,7 @@ class TodoList extends StatelessWidget {
           ),
         );
       },
-      itemCount: state.model.length,
+      itemCount: todos.length,
       separatorBuilder: (context, i) => Divider(),
       padding: EdgeInsets.symmetric(vertical: 50, horizontal: 20),
     );
@@ -110,7 +137,7 @@ class TodoList extends StatelessWidget {
 final theme = ThemeData.light().copyWith(
   textTheme: GoogleFonts.interTextTheme(
     TextTheme(
-      body1: TextStyle(
+      bodyText1: TextStyle(
         fontSize: 16,
         color: Colors.blueGrey[800],
       ),

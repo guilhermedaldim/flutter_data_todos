@@ -13,57 +13,55 @@ import 'package:todos/models/todo.dart';
 
 extension FlutterData on DataManager {
 
-  static Future<DataManager> init(Directory baseDir, {bool autoModelInit = true, bool clear = true, Function(void Function<R>(R)) also}) async {
+  static Future<DataManager> init(Directory baseDir, {bool autoModelInit = true, bool clear, bool remote, bool verbose, List<int> encryptionKey, Function(void Function<R>(R)) also}) async {
     assert(baseDir != null);
 
     final injection = DataServiceLocator();
 
-    final manager = await DataManager(autoModelInit: autoModelInit).init(baseDir, injection.locator, clear: clear);
+    final manager = await DataManager(autoModelInit: autoModelInit).init(baseDir, injection.locator, clear: clear, verbose: verbose);
     injection.register(manager);
-    final userLocalAdapter = await $UserLocalAdapter(manager).init();
-    injection.register(userLocalAdapter);
-    injection.register<Repository<User>>($UserRepository(userLocalAdapter));
 
-    final todoLocalAdapter = await $TodoLocalAdapter(manager).init();
-    injection.register(todoLocalAdapter);
-    injection.register<Repository<Todo>>($TodoRepository(todoLocalAdapter));
+    final userRepository = $UserRepository(manager, remote: remote, verbose: verbose);
+    injection.register<Repository<User>>(userRepository);
+    final userBox = await Repository.getBox<User>(manager, encryptionKey: encryptionKey);
+    injection.register(userBox);
+
+    final todoRepository = $TodoRepository(manager, remote: remote, verbose: verbose);
+    injection.register<Repository<Todo>>(todoRepository);
+    final todoBox = await Repository.getBox<Todo>(manager, encryptionKey: encryptionKey);
+    injection.register(todoBox);
 
 
     if (also != null) {
       // ignore: unnecessary_lambdas
       also(<R>(R obj) => injection.register<R>(obj));
     }
+await userRepository.initialize();
+await todoRepository.initialize();
 
     return manager;
-
-}
-
-  List<SingleChildWidget> get providers {
-  return [
-    Provider<Repository<User>>.value(value: locator<Repository<User>>()),
-Provider<Repository<Todo>>.value(value: locator<Repository<Todo>>()),
-  ];
-}
-
+  }
   
 }
 
 
 
-List<SingleChildWidget> dataProviders(Future<Directory> Function() directory, {bool clear = true}) => [
+List<SingleChildWidget> dataProviders(Future<Directory> Function() directory, {bool clear, bool remote, bool verbose, List<int> encryptionKey}) => [
   FutureProvider<DataManager>(
     create: (_) => directory().then((dir) {
-          return FlutterData.init(dir, clear: clear);
+          return FlutterData.init(dir, clear: clear, remote: remote, verbose: verbose, encryptionKey: encryptionKey);
         })),
 
 
     ProxyProvider<DataManager, Repository<User>>(
       lazy: false,
       update: (_, m, __) => m?.locator<Repository<User>>(),
+      dispose: (_, r) => r?.dispose(),
     ),
 
 
     ProxyProvider<DataManager, Repository<Todo>>(
       lazy: false,
       update: (_, m, __) => m?.locator<Repository<Todo>>(),
+      dispose: (_, r) => r?.dispose(),
     ),];
