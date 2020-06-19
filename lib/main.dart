@@ -27,15 +27,13 @@ class TodoApp extends StatelessWidget {
     SystemChrome.setEnabledSystemUIOverlays([]);
     return MaterialApp(
       home: Scaffold(
-        body: Center(
-          child: Builder(
-            builder: (context) {
-              if (context.watch<DataManager>() == null) {
-                return const CircularProgressIndicator();
-              }
-              return TodoScreen();
-            },
-          ),
+        body: Builder(
+          builder: (context) {
+            if (context.watch<DataManager>() == null) {
+              return const CircularProgressIndicator();
+            }
+            return TodoScreen();
+          },
         ),
         floatingActionButton: FloatingActionButton(
           onPressed: () async {
@@ -64,16 +62,16 @@ class TodoScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final repository = context.watch<Repository<User>>();
     return DataStateBuilder<User>(
-      notifier: repository.watchOne(
+      notifier: () => repository.watchOne(
         1,
         params: {'_embed': 'todos'},
-        alsoWatch: (u) => [u.todos],
+        alsoWatch: (user) => [user.todos],
       ),
       builder: (context, state, notifier, _) {
-        if (state.hasException) {
-          return Text(state.exception.toString());
-        }
-        return TodoList(state);
+        return RefreshIndicator(
+          onRefresh: notifier.reload,
+          child: TodoList(state),
+        );
       },
     );
   }
@@ -88,6 +86,9 @@ class TodoList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (state.hasException) {
+      return Text(state.exception.toString());
+    }
     if (state.isLoading) {
       return Center(child: const CircularProgressIndicator());
     }
@@ -109,12 +110,9 @@ class TodoList extends StatelessWidget {
             }
           },
           child: Dismissible(
-            child: Text(
-              '''${todo.completed ? "✅" : "◻️"} (${todos.length})
+            child: Text('''${todo.completed ? "✅" : "◻️"} (${todos.length})
               [id: ${todo.id} / ${keyFor(todo)}] ${todo.title}
-              / u: ${todo.user?.value?.id} / ${todo.hashCode}''',
-              style: TextStyle(color: Colors.black87),
-            ),
+              / u: ${todo.user?.value?.id} / ${todo.hashCode}'''),
             key: ValueKey(todo),
             direction: DismissDirection.endToStart,
             background: Container(
@@ -134,7 +132,7 @@ class TodoList extends StatelessWidget {
   }
 }
 
-final theme = ThemeData.light().copyWith(
+final theme = ThemeData.dark().copyWith(
   textTheme: GoogleFonts.interTextTheme(
     TextTheme(
       bodyText1: TextStyle(
