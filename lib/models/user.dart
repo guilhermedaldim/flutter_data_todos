@@ -7,7 +7,7 @@ import 'todo.dart';
 part 'user.g.dart';
 
 @JsonSerializable()
-@DataRepository([StandardJSONAdapter, JSONPlaceholderAdapter])
+@DataRepository([JSONPlaceholderAdapter])
 class User extends DataSupport<User> {
   @override
   final int id;

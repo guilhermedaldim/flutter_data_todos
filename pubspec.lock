@@ -168,7 +168,7 @@ packages:
       name: data_state
       url: "https://pub.dartlang.org"
     source: hosted
-    version: "0.3.2"
+    version: "0.3.3"
   fixnum:
     dependency: transitive
     description:
@@ -187,7 +187,7 @@ packages:
       name: flutter_data
       url: "https://pub.dartlang.org"
     source: hosted
-    version: "0.4.1"
+    version: "0.4.2-dev.2"
   flutter_data_state:
     dependency: "direct main"
     description:
@@ -213,7 +213,7 @@ packages:
       name: freezed_annotation
       url: "https://pub.dartlang.org"
     source: hosted
-    version: "0.7.1"
+    version: "0.11.0"
   glob:
     dependency: transitive
     description:

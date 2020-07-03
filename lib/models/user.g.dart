@@ -18,8 +18,8 @@ mixin _$UserModelAdapter on Repository<User> {
       {'todos': manager.locator<Repository<Todo>>()};
 
   @override
-  localDeserialize(map, {metadata}) {
-    for (var key in relationshipsFor().keys) {
+  localDeserialize(map) {
+    for (final key in relationshipsFor().keys) {
       map[key] = {
         '_': [map[key], !map.containsKey(key), manager]
       };
@@ -30,7 +30,7 @@ mixin _$UserModelAdapter on Repository<User> {
   @override
   localSerialize(model) {
     final map = _$UserToJson(model);
-    for (var e in relationshipsFor(model).entries) {
+    for (final e in relationshipsFor(model).entries) {
       map[e.key] = (e.value['instance'] as Relationship)?.toJson();
     }
     return map;
@@ -42,7 +42,6 @@ class $UserRepository = Repository<User>
         _$UserModelAdapter,
         RemoteAdapter<User>,
         WatchAdapter<User>,
-        StandardJSONAdapter<User>,
         JSONPlaceholderAdapter<User>;
 
 // **************************************************************************
