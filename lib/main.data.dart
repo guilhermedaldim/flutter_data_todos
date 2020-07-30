@@ -1,67 +1,50 @@
 
 
 // GENERATED CODE - DO NOT MODIFY BY HAND
-// ignore_for_file: directives_ordering
+// ignore_for_file: directives_ordering, top_level_function_literal_block
 
-import 'dart:io';
 import 'package:flutter_data/flutter_data.dart';
-import 'package:provider/provider.dart';
-import 'package:provider/single_child_widget.dart';
+
+import 'package:path_provider/path_provider.dart';
+
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:todos/models/user.dart';
 import 'package:todos/models/todo.dart';
 
-extension FlutterData on DataManager {
+ConfigureRepositoryLocalStorage configureRepositoryLocalStorage = ({FutureFn<String> baseDirFn, List<int> encryptionKey, bool clear}) {
+  // ignore: unnecessary_statements
+  baseDirFn ??= () => getApplicationDocumentsDirectory().then((dir) => dir.path);
+  return hiveLocalStorageProvider.overrideAs(RiverpodAlias.provider(
+        (_) => HiveLocalStorage(baseDirFn: baseDirFn, encryptionKey: encryptionKey, clear: clear)));
+};
 
-  static Future<DataManager> init(Directory baseDir, {bool autoManager = true, bool clear, bool remote, bool verbose, List<int> encryptionKey, Function(void Function<R>(R)) also}) async {
-    assert(baseDir != null);
+RepositoryInitializerProvider repositoryInitializerProvider = (
+        {bool remote, bool verbose}) {
+      internalLocatorFn = (provider, context) => provider.read(context);
+    
+  return _repositoryInitializerProviderFamily(
+      RepositoryInitializerArgs(remote, verbose));
+};
 
-    final injection = DataServiceLocator();
-
-    final manager = await DataManager(autoManager: autoManager).init(baseDir, injection.locator, clear: clear, verbose: verbose);
-    injection.register(manager);
-
-    final userRepository = $UserRepository(manager, remote: remote, verbose: verbose);
-    injection.register<Repository<User>>(userRepository);
-    final userBox = await Repository.getBox<User>(manager, encryptionKey: encryptionKey);
-    injection.register(userBox);
-
-    final todoRepository = $TodoRepository(manager, remote: remote, verbose: verbose);
-    injection.register<Repository<Todo>>(todoRepository);
-    final todoBox = await Repository.getBox<Todo>(manager, encryptionKey: encryptionKey);
-    injection.register(todoBox);
-
-
-    if (also != null) {
-      // ignore: unnecessary_lambdas
-      also(<R>(R obj) => injection.register<R>(obj));
-    }
-await userRepository.initialize();
-await todoRepository.initialize();
-
-    return manager;
-  }
-  
-}
-
+final _repositoryInitializerProviderFamily =
+  RiverpodAlias.futureProviderFamily<RepositoryInitializer, RepositoryInitializerArgs>((ref, args) async {
+    final graphs = <String, Map<String, RemoteAdapter>>{'todos,users': {'todos': ref.read(todoRemoteAdapterProvider), 'users': ref.read(userRemoteAdapterProvider)}};
+                await ref.read(userRepositoryProvider).initialize(
+              remote: args?.remote,
+              verbose: args?.verbose,
+              adapters: graphs['todos,users'],
+              ref: ref,
+            );            await ref.read(todoRepositoryProvider).initialize(
+              remote: args?.remote,
+              verbose: args?.verbose,
+              adapters: graphs['todos,users'],
+              ref: ref,
+            );
+    return RepositoryInitializer();
+});
 
 
-List<SingleChildWidget> dataProviders(Future<Directory> Function() directory, {bool clear, bool remote, bool verbose, List<int> encryptionKey}) => [
-  FutureProvider<DataManager>(
-    create: (_) => directory().then((dir) {
-          return FlutterData.init(dir, clear: clear, remote: remote, verbose: verbose, encryptionKey: encryptionKey);
-        })),
 
 
-    ProxyProvider<DataManager, Repository<User>>(
-      lazy: false,
-      update: (_, m, __) => m?.locator<Repository<User>>(),
-      dispose: (_, r) => r?.dispose(),
-    ),
-
-
-    ProxyProvider<DataManager, Repository<Todo>>(
-      lazy: false,
-      update: (_, m, __) => m?.locator<Repository<Todo>>(),
-      dispose: (_, r) => r?.dispose(),
-    ),];

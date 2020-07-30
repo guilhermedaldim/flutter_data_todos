@@ -8,7 +8,7 @@ part 'user.g.dart';
 
 @JsonSerializable()
 @DataRepository([JSONPlaceholderAdapter])
-class User extends DataSupport<User> {
+class User with DataModel<User> {
   @override
   final int id;
   final String name;

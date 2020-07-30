@@ -3,48 +3,6 @@
 part of 'todo.dart';
 
 // **************************************************************************
-// DataGenerator
-// **************************************************************************
-
-// ignore_for_file: unused_local_variable, always_declare_return_types, non_constant_identifier_names
-mixin _$TodoModelAdapter on Repository<Todo> {
-  @override
-  Map<String, Map<String, Object>> relationshipsFor([Todo model]) => {
-        'user': {'type': 'users', 'kind': 'BelongsTo', 'instance': model?.user}
-      };
-
-  @override
-  Map<String, Repository> get relatedRepositories =>
-      {'users': manager.locator<Repository<User>>()};
-
-  @override
-  localDeserialize(map) {
-    for (final key in relationshipsFor().keys) {
-      map[key] = {
-        '_': [map[key], !map.containsKey(key), manager]
-      };
-    }
-    return _$TodoFromJson(map);
-  }
-
-  @override
-  localSerialize(model) {
-    final map = _$TodoToJson(model);
-    for (final e in relationshipsFor(model).entries) {
-      map[e.key] = (e.value['instance'] as Relationship)?.toJson();
-    }
-    return map;
-  }
-}
-
-class $TodoRepository = Repository<Todo>
-    with
-        _$TodoModelAdapter,
-        RemoteAdapter<Todo>,
-        WatchAdapter<Todo>,
-        JSONPlaceholderAdapter<Todo>;
-
-// **************************************************************************
 // JsonSerializableGenerator
 // **************************************************************************
 
@@ -65,3 +23,60 @@ Map<String, dynamic> _$TodoToJson(Todo instance) => <String, dynamic>{
       'completed': instance.completed,
       'user': instance.user,
     };
+
+// **************************************************************************
+// RepositoryGenerator
+// **************************************************************************
+
+// ignore_for_file: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member, non_constant_identifier_names
+
+mixin $TodoLocalAdapter on LocalAdapter<Todo> {
+  @override
+  Map<String, Map<String, Object>> relationshipsFor([Todo model]) => {
+        'user': {
+          'inverse': 'todos',
+          'type': 'users',
+          'kind': 'BelongsTo',
+          'instance': model?.user
+        }
+      };
+
+  @override
+  Todo deserialize(map) {
+    for (final key in relationshipsFor().keys) {
+      map[key] = {
+        '_': [map[key], !map.containsKey(key)],
+      };
+    }
+    return _$TodoFromJson(map);
+  }
+
+  @override
+  Map<String, dynamic> serialize(model) => _$TodoToJson(model);
+}
+
+// ignore: must_be_immutable
+class $TodoHiveLocalAdapter = HiveLocalAdapter<Todo> with $TodoLocalAdapter;
+
+class $TodoRemoteAdapter = RemoteAdapter<Todo>
+    with JSONPlaceholderAdapter<Todo>;
+
+//
+
+final todoLocalAdapterProvider = RiverpodAlias.provider<LocalAdapter<Todo>>(
+    (ref) => $TodoHiveLocalAdapter(
+        ref.read(hiveLocalStorageProvider), ref.read(graphProvider)));
+
+final todoRemoteAdapterProvider = RiverpodAlias.provider<RemoteAdapter<Todo>>(
+    (ref) => $TodoRemoteAdapter(ref.read(todoLocalAdapterProvider)));
+
+final todoRepositoryProvider =
+    RiverpodAlias.provider<Repository<Todo>>((_) => Repository<Todo>());
+
+extension TodoX on Todo {
+  Todo init(context) {
+    return internalLocatorFn(todoRepositoryProvider, context)
+        .internalAdapter
+        .initializeModel(this, save: true) as Todo;
+  }
+}

@@ -4,69 +4,82 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_data/flutter_data.dart';
 import 'package:flutter_data_state/flutter_data_state.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:provider/provider.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:todos/main.data.dart';
 
 import 'models/todo.dart';
 import 'models/user.dart';
 
 main() {
-  runApp(MultiProvider(
-    providers: [
-      ...dataProviders(() => getApplicationDocumentsDirectory(), clear: true),
-    ],
-    child: TodoApp(),
-  ));
+  runApp(TodoApp());
 }
 
 class TodoApp extends StatelessWidget {
   @override
   Widget build(context) {
     SystemChrome.setEnabledSystemUIOverlays([]);
-    return MaterialApp(
-      home: Scaffold(
-        body: Builder(
-          builder: (context) {
-            if (context.watch<DataManager>() == null) {
-              return const CircularProgressIndicator();
-            }
-            return TodoScreen();
-          },
-        ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () async {
-            final user = await context
-                .read<Repository<User>>()
-                .findOne('1', remote: false);
+    return ProviderScope(
+      overrides: [
+        configureRepositoryLocalStorage(clear: false),
+      ],
+      child: Builder(builder: (context) {
+        return MaterialApp(
+          home: Scaffold(
+            body: HookBuilder(
+              builder: (context) {
+                return useProvider(repositoryInitializerProvider()).when(
+                  data: (_) => TodoScreen(),
+                  loading: () => const CircularProgressIndicator(),
+                  error: (err, stack) =>
+                      Center(child: Text('err: $err / $stack')),
+                );
+              },
+            ),
+            floatingActionButton: FloatingActionButton(
+              onPressed: () async {
+                // final user = await context
+                //     .read<Repository<User>>()
+                //     .findOne('1', remote: false);
 
-            final todo = Todo(
-                title: "Task number ${Random().nextInt(9999)}",
-                user: BelongsTo());
+                final repo = userRepositoryProvider.read(context);
+                final user = await repo.findOne('1', remote: false);
 
-            // await todo.save();
-            user.todos.add(todo);
-          },
-          child: Icon(Icons.add),
-        ),
-      ),
-      theme: theme,
-      debugShowCheckedModeBanner: false,
+                final todo = Todo(
+                    id: Random().nextInt(99) + 2,
+                    title: "Task number ${Random().nextInt(9999)}",
+                    user: BelongsTo());
+
+                // await todo.save();
+                user.todos.add(todo);
+                await user.save();
+              },
+              child: Icon(Icons.add),
+            ),
+          ),
+          theme: theme,
+          debugShowCheckedModeBanner: false,
+        );
+      }),
     );
   }
 }
 
-class TodoScreen extends StatelessWidget {
+class TodoScreen extends HookWidget {
   @override
   Widget build(BuildContext context) {
-    final repository = context.watch<Repository<User>>();
+    final repository = useProvider(userRepositoryProvider);
+
     return DataStateBuilder<User>(
-      notifier: () => repository.watchOne(
-        1,
-        params: {'_embed': 'todos'},
-        alsoWatch: (user) => [user.todos],
-      ),
+      notifier: () {
+        return repository.watchOne(
+          1,
+          params: {'_embed': 'todos'},
+          alsoWatch: (user) => [user.todos],
+        );
+      },
       builder: (context, state, notifier, _) {
         return RefreshIndicator(
           onRefresh: notifier.reload,
@@ -97,16 +110,15 @@ class TodoList extends StatelessWidget {
         final todo = todos[i];
         return GestureDetector(
           onDoubleTap: () async {
-            final user = await context
-                .read<Repository<User>>()
-                .findOne('1', remote: false);
+            final repository = userRepositoryProvider.read(context);
+            final user = await repository.findOne('1', remote: false);
             if (todo.id != null) {
               Todo(
                 id: todo.id,
                 title: todo.title,
                 completed: !todo.completed,
                 user: user.asBelongsTo,
-              ).save();
+              ).init(context).save();
             }
           },
           child: Dismissible(
